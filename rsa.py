@@ -5,9 +5,13 @@ from typing import Optional
 MILLER_ROUNDS = 0x1000
 
 
-# power with mod, increase of overflow
-# return (base ** exp) % mod
 def pow(base: int, exp: int, mod: int) -> int:
+    """
+    Power with mod, but no overflow, since
+    `base**exp` is considered secure when it's a
+    2048 bit int in practice
+    return (base ** exp) % mod
+    """
 
     result = 1
     base %= mod
@@ -28,11 +32,16 @@ def pow(base: int, exp: int, mod: int) -> int:
     return result
 
 
-# compute `d` and `r` s.t.:
-# n - 1 = d * (2**r), r >= 1
-# return (d, r)
-# n is odd and n != 1
 def compute_d(n: int) -> int:
+    """
+    `n` is odd and `n != 1`
+
+    Compute `d` and `r` s.t.:
+    `n - 1 = d * (2**r), r >= 1`
+
+    This is not the `d` param for RSA, it's
+    for Miller's primality test
+    """
     assert n & 1 == 1 and n > 1
 
     d = n - 1
@@ -42,9 +51,12 @@ def compute_d(n: int) -> int:
     return d
 
 
-# testing if `n` is prime.
-# greater round = more accurate test
 def millertest(n: int, round: int) -> bool:
+    """
+    Testing if `n` is prime.
+    Greater `round` = more accurate test
+    """
+
     # `n` needs to be greater than 5,
     # since `random.randint(2, n - 2)` will panic if 2 >= n-2
     if n in [2, 3, 5]:
@@ -76,8 +88,10 @@ def millertest(n: int, round: int) -> bool:
     return False
 
 
-# generate a random prime
 def genprime() -> int:
+    """
+    Generate a random prime
+    """
     p: int = random.randint(0x100000, 0xFFFFFF)
     while millertest(p, MILLER_ROUNDS) == False:
         p = random.randint(0x100000, 0xFFFFFF)
@@ -85,8 +99,10 @@ def genprime() -> int:
     return p
 
 
-# calculate coprime of n
 def coprime(n: int) -> int:
+    """
+    Calculate the (largest) coprime of `n`
+    """
     e = n - 2
     while e > 1:
         if math.gcd(e, n) == 1:
@@ -95,21 +111,26 @@ def coprime(n: int) -> int:
     return e
 
 
-# extended euclidean algorithm, used to find mod inverse
-# return gcd, x, y
-# if gcd != 1, mod inverse does not exist
 def extended_gcd(a: int, b: int) -> tuple[int, int, int]:
+    """
+    Extended Euclidean Algorithm, used to find mod inverse of `a mod b`
+
+    if `gcd != 1`, mod inverse does not exist
+    """
     if a == 0:
         return b, 0, 1
 
     gcd, x1, y1 = extended_gcd(b % a, a)
     x = y1 - (b // a) * x1
     y = x1
+
     return gcd, x, y
 
 
-# multiplicative modulo inverse of `a mod m` (if exists)
 def mod_inverse(a, m) -> Optional[int]:
+    """
+    Multiplicative modulo inverse of `a mod m` (if exists)
+    """
     gcd, x, _ = extended_gcd(a, m)
     if gcd != 1:
         return None
@@ -142,23 +163,26 @@ if __name__ == "__main__":
     assert d != None  # if `e` and `phi` are computed properly, this won't fail
     print_int("d", d)
 
-    # RSA pki:
-    # params: `e` and `n` are public, everything else is private
-    # C - ciphertext
-    # M - message/plaintext
+    """
+    RSA pki:
+        - Params: 
+            - `e` and `n` are the public secrets.
+            - `d`, `phi`, `p`, and `q` are private secrets.
+        - C: ciphertext
+        - M: message/plaintext
+    """
+    print("Testing with RSA")
 
     # encrypt: C congru. (M**e) % n
-    m = random.randint(0, 0xFFFFFF)
-    print_int("M", m)
+    M = random.randint(0, 0xFFFFFF)
+    print_int("M", M)
 
-    c = pow(m, e, n)
-    print_int("C", c)
+    C = pow(M, e, n)
+    print_int("C", C)
 
     # decryption: M congru. (C**d) % n
-    pt = pow(c, d, n)
-    print_int("pt", pt)
+    decrypted = pow(C, d, n)
+    print_int("pt", decrypted)
 
-    if m == pt:
-        print("RSA ok")
-    else:
-        print("wrong :/")
+    assert M == decrypted
+    print("ok")
